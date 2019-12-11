@@ -27,6 +27,9 @@ public:
 	int asapTime;
 	int alapTime;
 	int width;
+	double prob;
+	int scheduleTime;
+	bool visited;
 
     vector<obj *> inputs;
     obj *output;

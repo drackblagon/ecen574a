@@ -94,7 +94,9 @@ int convertToVerilog(stringstream &in, stringstream &out, string outFileName, in
 	calcAsap(&nl.operations);
 	calcAlap(&nl.operations, maxCycles);
 	computeTimeFrame(&nl.operations);
-	calcTypeDist(&nl.operations);
+	calcTypeDist(&nl.operations, maxCycles);
+	calcForce(&nl.operations, maxCycles);
+	printScheduledTime(&nl.operations);
 
 
     if (nl.getVerilog(out, outFileName) != SUCCESS) {
