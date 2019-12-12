@@ -21,6 +21,7 @@ public:
         MOD,
         INC,
         DEC,
+        IF,
         UNKNOWN
     };
     
@@ -140,6 +141,9 @@ public:
                 }
                 strStream << output->name;
                 break;
+            case IF:
+                //TODO: STUFF
+                break;
             case UNKNOWN:
                 break;
         }
@@ -189,22 +193,6 @@ public:
 				return UNKNOWN;
 		}
 	}
-
-	/*bool compareOp(operation op2) {
-		bool result;
-		for (auto& ops_1 : this->inputs) {
-			for (auto& ops_2 : op2.inputs) {
-				if (ops_1->name.compare(ops_2->name) == 0) {
-					result = true;
-					break;
-				}
-				else {
-					result = false;
-				}
-			}
-		}
-		return result;
-	}*/
     
 private:
     int getMaxVarSize() {
@@ -256,6 +244,8 @@ private:
                 return "INC";
             case DEC:
                 return "DEC";
+            case IF:
+                return "IF";
                 
             default:
                 return "UNKNOWN";

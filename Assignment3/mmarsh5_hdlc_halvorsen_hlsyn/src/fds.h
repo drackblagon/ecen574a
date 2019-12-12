@@ -17,7 +17,7 @@ namespace std {
 	};
 
 	vector <vector<double>> prob;
-	
+
 	void computeTimeFrame(vector<operation> * operations) {
 		for (auto& ops : *operations) {
 			ops.width = (ops.alapTime - ops.asapTime) + 1;
@@ -44,46 +44,57 @@ namespace std {
 
 	void calcAsap(vector<operation> * operations) {
 		int maxTime;
+		int finalTime;
 		bool done = false;
 		bool good = false;
 		int cnt = 0;
 
-		cout << endl;
+		//cout << endl;
 
 		while (!done) {
 			done = true;
 			for (auto& ops : * operations) {
 				good = true;
 				maxTime = 0;
+				finalTime = 0;
 				if (ops.asapTime == 0) {
 					if (ops.parents.size() - 1 == 0) {
 						ops.asapTime = 1;
-						cout << "No Parent Operation: " << ops.op_line << endl;
-						cout << "Asap Time: " << ops.asapTime << endl;
-						cout << endl;
+						//cout << "No Parent Operation: " << ops.op_line << endl;
+						//cout << "Asap Time: " << ops.asapTime << endl;
+						//cout << endl;
 					}
 					else {
-						cout << "Multiple Parent Operation: " << ops.op_line << endl;
+						//cout << "Multiple Parent Operation: " << ops.op_line << endl;
 						for (auto& parent : ops.parents) {
 							if (parent->asapTime == 0) {
 								good = false;
 								done = false;
-								cout << "0 Parent ASAP Time: " << parent->asapTime << endl;
-								cout << endl;
+								//cout << "0 Parent ASAP Time: " << parent->asapTime << endl;
+								//cout << endl;
 								break;
 							}
 						}
 						if (good) {
 							for (auto& par : ops.parents) {
-								cout << "Parent: " << par->op_line << endl;
-								cout << "Parent ASAP Time: " << par->asapTime << endl;
-								if (par->asapTime > maxTime) {
-									maxTime = par->asapTime;
+								//cout << "Parent: " << par->op_line << endl;
+								//cout << "Parent ASAP Time: " << par->asapTime << endl;
+								if (!par->getType().compare("MUL")) {
+									finalTime = par->asapTime + 1;
+								}
+								else if (!par->getType().compare("DIV") || !par->getType().compare("MOD")) {
+									finalTime = par->asapTime + 2;
+								}
+								else {
+									finalTime = par->asapTime;
+								}
+								if (finalTime > maxTime) {
+									maxTime = finalTime;
 								}
 							}
 							ops.asapTime = maxTime + 1;
-							cout << "Asap Time: " << ops.asapTime << endl;
-							cout << endl;
+							//cout << "Asap Time: " << ops.asapTime << endl;
+							//cout << endl;
 						}
 					}
 				}
@@ -93,46 +104,66 @@ namespace std {
 
 	void calcAlap(vector<operation> * operations, int latency) {
 		int maxTime;
+		int finalTime;
 		bool done = false;
 		bool good = false;
 		int cnt = 0;
 
-		cout << endl;
+		//cout << endl;
 
 		while (!done) {
 			done = true;
 			for (auto& ops : * operations) {
 				good = true;
 				maxTime = latency + 1;
+				finalTime = latency;
 				if (ops.alapTime == 0) {
 					if (ops.children.size() == 0) {
-						ops.alapTime = latency;
-						cout << "No Children Operation: " << ops.op_line << endl;
-						cout << "Alap Time: " << ops.alapTime << endl;
-						cout << endl;
+						if (!ops.getType().compare("MUL")) {
+							finalTime = latency - 1;
+						}
+						else if (!ops.getType().compare("DIV") || !ops.getType().compare("MOD")) {
+							finalTime = latency - 2;
+						}
+						else {
+							finalTime = latency;
+						}
+						ops.alapTime = finalTime;
+						//cout << "No Children Operation: " << ops.op_line << endl;
+						//cout << "Alap Time: " << ops.alapTime << endl;
+						//cout << endl;
 					}
 					else {
-						cout << "Multiple Children Operation: " << ops.op_line << endl;
+						//cout << "Multiple Children Operation: " << ops.op_line << endl;
 						for (auto& child : ops.children) {
 							if (child->alapTime == 0) {
 								good = false;
 								done = false;
-								cout << "0 Child Alap Time: " << child->alapTime << endl;
-								cout << endl;
+								//cout << "0 Child Alap Time: " << child->alapTime << endl;
+								//cout << endl;
 								break;
 							}
 						}
 						if (good) {
 							for (auto& child : ops.children) {
-								cout << "Child: " << child->op_line << endl;
-								cout << "Child Alap Time: " << child->alapTime << endl;
+								//cout << "Child: " << child->op_line << endl;
+								//cout << "Child Alap Time: " << child->alapTime << endl;
 								if (child->alapTime < maxTime) {
 									maxTime = child->alapTime;
 								}
 							}
-							ops.alapTime = maxTime - 1;
-							cout << "alap Time: " << ops.alapTime << endl;
-							cout << endl;
+							if (!ops.getType().compare("MUL")) {
+								finalTime = maxTime - 2;
+							}
+							else if (!ops.getType().compare("DIV") || !ops.op_line.compare("MOD")) {
+								finalTime = maxTime - 3;
+							}
+							else {
+								finalTime = maxTime - 1;
+							}
+							ops.alapTime = finalTime;
+							//cout << "alap Time: " << ops.alapTime << endl;
+							//cout << endl;
 						}
 					}
 				}
@@ -153,26 +184,19 @@ namespace std {
 	void calcTypeDist(vector<operation> * operations, int latency) {
 		initProbVector(latency);
 
-
 		for (auto& op : * operations) {
 			for (int i = op.asapTime; i <= op.alapTime; ++i) {
-//				cout << "Op at time " << i << ": " << op.op_line << endl;
-//				cout << "Op Alap Time: " << op.alapTime << endl;
 				if (!op.getType().compare("MUL")) {
 					prob[mult][i] += op.prob;
-//					cout << "Multiplier: P(" << i << "): " << prob[mult][i] << endl;
 				}
 				else if (!op.getType().compare("ADD") || !op.getType().compare("SUB")) {
 					prob[addSub][i] += op.prob;
-//					cout << "Adder/Sub: P(" << i << "): " << prob[addSub][i] << endl;
 				}
 				else if (!op.getType().compare("DIV") || !op.getType().compare("MOD")) {
 					prob[divMod][i] += op.prob;
-//					cout << "Div/Mod P(" << i << "): " << prob[divMod][i] << endl;
 				}
 				else {
 					prob[logic][i] += op.prob;
-//					cout << "Logic P(" << i << "): " << prob[logic][i] << endl;
 				}
 			}
 		}
@@ -227,21 +251,20 @@ namespace std {
 
 	tuple<int, double> forceDir(vector<operation> * operations, operation * op, int cycle, bool first, bool Successor)
 	{
+		tuple<int, double> tempForce(-1, 0.0);
+		tuple<int, double> forceSum(-1, 10000.0);
+		double probability;
+		int timing = 0;
+		int resourceVector = getResource(op);
+
+
 		op->visited = true;
+
 		if ((cycle < op->asapTime || op->alapTime < cycle) && !first)
 		{
 			tuple<int, double> empty(0, 0.0);
 			return empty;
 		}
-
-
-		tuple<int, double> tempForce(-1, 0.0);
-		tuple<int, double> forceSum(-1, 10000.0);
-
-		double probability;
-		int timing = 0;
-
-		int resourceVector = getResource(op);
 
 		for (int cycle = op->asapTime; cycle <= op->alapTime; ++cycle)
 		{
@@ -297,9 +320,9 @@ namespace std {
 			ops.asapTime = ops.scheduleTime;
 			ops.alapTime = ops.scheduleTime;
 			ops.prob = 1.0;
-					printDistribution();
+			printDistribution();
 			calcTypeDist(operations, latency);
-					printDistribution();
+			printDistribution();
 		}
 	}
 

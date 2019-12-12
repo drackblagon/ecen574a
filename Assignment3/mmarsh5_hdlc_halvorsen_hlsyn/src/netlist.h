@@ -14,8 +14,29 @@ public:
     vector<obj> wires;
     vector<operation> operations;
     operation topLevelOp;
+	int stateCnt;
+
+	bool latencyGood(int latency) {
+		int max = 0;
+		for (auto& op : this->operations) {
+			if (op.asapTime > max) {
+				max = op.asapTime;
+			}
+		}
+
+		if (max > latency) {
+			return false;
+		}
+		else {
+			return true;
+		}
+	}
     
     obj *getObj (string name) {
+        if (name.empty()) {
+            cout << "ERROR: name is empty" << endl;
+            return nullptr;
+        }
         for (auto& oTemp: inputs) {
             if (name.compare(oTemp.name) == 0) {
                 return &oTemp;
@@ -43,6 +64,16 @@ public:
         return nullptr;
     }
     
+	void setStateCnt() {
+		int cnt = 0;
+		for (auto& op : this->operations) {
+			if (op.scheduleTime > cnt) {
+				cnt = op.scheduleTime;
+			}
+		}
+		this->stateCnt = cnt + 2;
+	}
+
     int addObject(obj::objTypeEnum objType, vector<string> tokens) {
         obj o;
         
@@ -213,6 +244,41 @@ public:
         return SUCCESS;
     }
     
+    int addIfOperation(vector<string> tokens, string op_line) {
+        int result = FAILURE;
+        
+        if (tokens.size() != 5) {
+            cout << "Wrong number of tokens for IF operation" << endl;
+            return result;
+        }
+        if ((tokens.at(1) != "(") || (tokens.at(3) != ")")) {
+            cout << "Could not find one of the parenthesis" << endl;
+            return result;
+        }
+        if (tokens.at(4) != "{") {
+            cout << "Could not find opening bracket" << endl;
+            return result;
+        }
+        
+        operation op;
+        op.op_line = op_line;
+        op.op = operation::IF;
+        obj *o;
+        
+        if ((o = getObj(tokens.at(2))) == nullptr) {
+            cout << "ERROR: could not find input variable" << endl;
+            return FAILURE;
+        }
+        
+        op.inputs.push_back(o);
+        
+        operations.push_back(op);
+        
+        result = SUCCESS;
+        
+        return result;
+    }
+    
     operation * getParent(obj *input) {
         for (auto& topInput: topLevelOp.inputs) {
             if (input == topInput) {
@@ -233,12 +299,9 @@ public:
         }
         
         for (auto& op: operations) {
-			if (&op == &topLevelOp) {
-				continue;
-			}
-			/*if (op.compareOp(topLevelOp)) {
+            if (&op == &topLevelOp) {
                 continue;
-            }*/
+            }
             for (auto &input: op.inputs) {
                 operation *parent = getParent(input);
                 if (parent != nullptr) {
@@ -292,10 +355,25 @@ public:
     void printNodeTree () {
         printNode(&topLevelOp, 0);
     }
+
+	void printStates(stringstream &output) {
+		for (int i = 1; i <= this->stateCnt-2; i++) {
+			output << "\t\t\t" << i << " : begin" << endl;
+			for (auto& op : operations) {
+				if (op.scheduleTime == i) {
+					output << "\t\t\t\t" << op.op_line << ";" << endl;
+				}
+			}
+			output << "\t\t\tend" << endl;
+		}
+		
+	}
     
     int getVerilog(stringstream &output, string outFileName) {
         string moduleName = outFileName;
+		setStateCnt();
         int pos;
+		int finalState = this->stateCnt - 1;
         int lastSlashPos;
         if ((lastSlashPos = outFileName.find_last_of("/")) != string::npos) {
             if (lastSlashPos > 0) {
@@ -334,7 +412,7 @@ public:
             o.getInstanceString("input", output);
         }
         for(auto& o: outputs) {
-            o.getInstanceString("output", output);
+            o.getInstanceString("output reg", output);
         }
         
         output << endl;
@@ -342,15 +420,45 @@ public:
         for(auto& o: registers) {
             o.getInstanceString("reg", output);
         }
+		output << "\treg [" << ceil(log2(this->stateCnt)) - 1 << ":0] State;" << endl;
         for(auto& o: wires) {
             o.getInstanceString("wire", output);
         }
         
         output << endl;
+
+		output << "\talways @(posedge Clk) begin" << endl;
+		output << "\t\tif (Rst) begin" << endl;
+
+		for (auto& o : registers) {
+			output << "\t\t\t" << o.name << " <= 0;" << endl;
+		}
+		for (auto& o : outputs) {
+			output << "\t\t\t" << o.name << " <= 0;" << endl;
+		}
+		output << "\t\t\tState <= 0;" << endl;
+		output << "\t\tend" << endl;
+		output << "\t\telse begin" << endl;
+		output << "\t\tcase (State)" << endl;
+		output << "\t\t\t0 : begin" << endl;
+	    output << "\t\t\t\tif (Start) State <= 1;" << endl;
+		output << "\t\t\t\telse State <= 0;" << endl;
+		output << "\t\t\tend" << endl;
+
+		printStates(output);
+
+		output << "\t\t\t" << finalState << " : begin" << endl;
+		output << "\t\t\t\tDone <= 1;" << endl;
+		output << "\t\t\t\tState <= 0;" << endl;
+		output << "\t\t\tend" << endl;
+
+		output << "\t\tendcase" << endl;
+		output << "\t\tend" << endl;
+		output << "\tend" << endl;
         
-        for(auto& op: operations) {
+        /*for(auto& op: operations) {
             op.getOutputVerilog(output);
-        }
+        }*/
         
         output << "endmodule" << endl;
         
